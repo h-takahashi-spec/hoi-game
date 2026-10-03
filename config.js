@@ -4,7 +4,7 @@ window.HOI_CONFIG = {
   GAS_URL: 'https://script.google.com/macros/s/AKfycbyZIqAn0Ea8jpsQKQhb4kzJa3txW_SCMB_yU95Xhawp5NFY9pSnHBE_BLgvSnhTmS1T/exec',
 
   // 試行数
-  N_TRIALS: 20,
+  N_TRIALS: 30,
 
   // 相手の手の並び（全条件共通）。'L' = 画面の左、'R' = 画面の右。これを繰り返す
   PATTERN: ['L', 'L', 'R', 'R'],
