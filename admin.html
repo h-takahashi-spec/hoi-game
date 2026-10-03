@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>あっち向いてホイ 集計</title>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --surface:#fcfcfb; --bg:#f3f1ec; --line:#e4e1da; --grid:#ebe8e1;
+  --text-1:#0b0b0b; --text-2:#52514e; --text-3:#8a877f;
+  --s-human:#2a78d6; --s-shiba:#eb6834; --s-computer:#1baf7a;
+  --accent:#e2583e;
+  --font:'M PLUS Rounded 1c',system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme:dark;
+    --surface:#1a1a19; --bg:#121211; --line:#2e2d2b; --grid:#262523;
+    --text-1:#ffffff; --text-2:#c3c2b7; --text-3:#8d8b83;
+    --s-human:#3987e5; --s-shiba:#d95926; --s-computer:#199e70;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --surface:#1a1a19; --bg:#121211; --line:#2e2d2b; --grid:#262523;
+  --text-1:#ffffff; --text-2:#c3c2b7; --text-3:#8d8b83;
+  --s-human:#3987e5; --s-shiba:#d95926; --s-computer:#199e70;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text-1);font-family:var(--font);font-size:15px}
+main{max-width:1180px;margin:0 auto;padding:20px 16px 60px;display:flex;flex-direction:column;gap:16px}
+h1{font-size:22px;margin:0}
+h2{font-size:16px;margin:0 0 4px}
+.sub{color:var(--text-2);font-size:13px;margin:0 0 10px;line-height:1.6}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.controls{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.controls input[type=text],.controls input[type=password]{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text-1)}
+#url{flex:1 1 320px}
+button{font:inherit;padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text-1);cursor:pointer;font-weight:700}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+label.ck{display:inline-flex;gap:6px;align-items:center;color:var(--text-2);font-size:14px}
+input.num{width:64px;font:inherit;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text-1)}
+#msg{font-size:13px;color:var(--text-2)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;position:relative}
+.tile .nm{display:flex;align-items:center;gap:8px;font-weight:800}
+.tile .sw{width:12px;height:12px;border-radius:3px}
+.tile .big{font-size:40px;font-weight:800;line-height:1.1;margin-top:6px;font-variant-numeric:tabular-nums}
+.tile .big small{font-size:16px;color:var(--text-2);margin-left:2px}
+.tile .meta{color:var(--text-2);font-size:13px;margin-top:2px}
+.charts{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+@media (max-width:860px){.charts{grid-template-columns:1fr}}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--text-2);margin-bottom:6px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;
+  box-shadow:0 4px 14px rgba(0,0,0,.12);white-space:nowrap;display:none;z-index:5;color:var(--text-1)}
+.tip .r{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.tip .r i{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:6px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--text-2);font-weight:700;font-size:13px;cursor:pointer;user-select:none;white-space:nowrap}
+td.num{font-variant-numeric:tabular-nums;text-align:right}
+td.txt{max-width:460px;line-height:1.6}
+.pill{display:inline-flex;align-items:center;gap:6px;font-weight:700}
+.pill i{width:10px;height:10px;border-radius:2px}
+.yes{font-weight:800}
+.proj .hide-proj{display:none}
+.proj{font-size:17px}
+.proj .tile .big{font-size:52px}
+.empty{color:var(--text-3);padding:24px;text-align:center}
+</style>
+</head>
+<body>
+<main id="root">
+  <div class="controls hide-proj">
+    <h1>あっち向いてホイ 集計</h1>
+  </div>
+  <section class="panel controls hide-proj">
+    <input type="text" id="url" placeholder="ウェブアプリ URL（https://script.google.com/macros/s/…/exec）">
+    <input type="password" id="key" placeholder="合言葉">
+    <button class="primary" id="btn-load">読み込む</button>
+    <label class="ck"><input type="checkbox" id="auto"> 10秒ごとに自動更新</label>
+    <span id="msg"></span>
+  </section>
+  <section class="panel controls">
+    <label class="ck">「気づいた」の基準：後半 <input class="num" type="number" id="last-n" min="4" max="40" step="1" value="20"> 試行の勝率が
+      <input class="num" type="number" id="thr" min="50" max="100" step="5" value="80"> %以上</label>
+    <label class="ck hide-proj"><input type="checkbox" id="no-test" checked> TEST で始まる学籍番号を除く</label>
+    <label class="ck hide-proj"><input type="checkbox" id="first-only" checked> 同じ学籍番号は最初の1回だけ使う</label>
+    <button id="btn-proj">投影モード</button>
+    <button class="hide-proj" id="btn-csv">CSV（参加者）</button>
+    <button class="hide-proj" id="btn-csv2">CSV（全試行）</button>
+  </section>
+
+  <section class="tiles" id="tiles"></section>
+
+  <section class="charts">
+    <div class="panel">
+      <h2>勝率の推移</h2>
+      <p class="sub">4試行ごとの平均勝率。でたらめに出すと50%（点線）。規則に気づくと100%に近づきます。</p>
+      <div class="legend" id="legend1"></div>
+      <div class="chart" id="curve"></div>
+    </div>
+    <div class="panel">
+      <h2>規則に気づいた人の割合</h2>
+      <p class="sub" id="thr-desc"></p>
+      <div class="chart" id="bars"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>自由記述（相手の出し方に規則はあったか）</h2>
+    <p class="sub">見出しをクリックすると並べ替えます。</p>
+    <div style="overflow-x:auto"><table id="tbl"></table></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const COND = [
+    { id: 'human', label: '人間', v: '--s-human' },
+    { id: 'shiba', label: '柴犬', v: '--s-shiba' },
+    { id: 'computer', label: 'コンピュータ', v: '--s-computer' },
+  ];
+  const BLOCK = 4;
+  const $ = (id) => document.getElementById(id);
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const pct = (x) => (x == null || isNaN(x)) ? '–' : Math.round(x * 100) + '%';
+  const clean = (v) => String(v ?? '').replace(/^'/, '');
+
+  let RAW = { trials: [], participants: [] };
+  let sortKey = 'condition', sortDir = 1;
+
+  // ---------- 保存された設定 ----------
+  try {
+    $('url').value = localStorage.getItem('hoi_admin_url') || '';
+    $('key').value = localStorage.getItem('hoi_admin_key') || '';
+  } catch (e) {}
+
+  async function load() {
+    const url = $('url').value.trim(), key = $('key').value;
+    if (!url) { $('msg').textContent = 'URL を入れてください'; return; }
+    try { localStorage.setItem('hoi_admin_url', url); localStorage.setItem('hoi_admin_key', key); } catch (e) {}
+    $('msg').textContent = '読み込み中…';
+    try {
+      const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(key));
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error);
+      RAW = j;
+      $('msg').textContent = `読み込み完了：参加者 ${j.participants.length} 件 / 試行 ${j.trials.length} 行（${new Date().toLocaleTimeString()}）`;
+      render();
+    } catch (err) { $('msg').textContent = '読み込めませんでした：' + err.message; }
+  }
+  $('btn-load').onclick = load;
+  let timer = null;
+  $('auto').onchange = (e) => { clearInterval(timer); if (e.target.checked) { load(); timer = setInterval(load, 10000); } };
+  ['last-n', 'thr', 'no-test', 'first-only'].forEach((id) => $(id).addEventListener('input', render));
+  $('btn-proj').onclick = () => { document.body.classList.toggle('proj'); $('btn-proj').textContent = document.body.classList.contains('proj') ? '投影モードを終える' : '投影モード'; render(); };
+
+  // ---------- 集計 ----------
+  function dataset() {
+    const noTest = $('no-test').checked, firstOnly = $('first-only').checked;
+    const lastN = Math.max(1, +$('last-n').value || 20), thr = (+$('thr').value || 80) / 100;
+    let ps = RAW.participants.map((p) => Object.assign({}, p, { student_id: clean(p.student_id), session_id: clean(p.session_id), rule_text: clean(p.rule_text) }));
+    if (noTest) ps = ps.filter((p) => !/^TEST/i.test(p.student_id));
+    ps.sort((a, b) => String(a.started_at).localeCompare(String(b.started_at)));
+    if (firstOnly) { const seen = new Set(); ps = ps.filter((p) => !seen.has(p.student_id) && seen.add(p.student_id)); }
+    const bySess = {};
+    RAW.trials.forEach((t) => { const s = clean(t.session_id); (bySess[s] = bySess[s] || []).push(t); });
+    ps.forEach((p) => {
+      const T = (bySess[p.session_id] || []).slice().sort((a, b) => a.trial - b.trial);
+      p.T = T;
+      const tail = T.slice(-lastN);
+      p.lastRate = tail.length ? tail.reduce((a, t) => a + (+t.win), 0) / tail.length : NaN;
+      p.noticed = p.lastRate >= thr;
+    });
+    return { ps, lastN, thr };
+  }
+
+  function summary(ps) {
+    return COND.map((c) => {
+      const g = ps.filter((p) => p.condition === c.id);
+      const n = g.length, k = g.filter((p) => p.noticed).length;
+      const nBlocks = Math.max(0, ...g.map((p) => Math.ceil(p.T.length / BLOCK)));
+      const curve = [];
+      for (let b = 0; b < nBlocks; b++) {
+        const vals = g.map((p) => p.T.slice(b * BLOCK, b * BLOCK + BLOCK)).filter((x) => x.length)
+          .map((x) => x.reduce((a, t) => a + (+t.win), 0) / x.length);
+        curve.push(vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : null);
+      }
+      const lr = g.map((p) => p.lastRate).filter((x) => !isNaN(x));
+      return Object.assign({}, c, { n, k, rate: n ? k / n : NaN, curve, meanLast: lr.length ? lr.reduce((a, v) => a + v, 0) / lr.length : NaN });
+    });
+  }
+
+  function render() {
+    const { ps, lastN, thr } = dataset();
+    const S = summary(ps);
+    $('thr-desc').textContent = `後半${lastN}試行の勝率が${Math.round(thr * 100)}%以上だった人の割合。棒の上の数字は「気づいた人数 / 参加者数」。`;
+
+    // タイル
+    $('tiles').innerHTML = S.map((s) => `
+      <div class="tile">
+        <div class="nm"><span class="sw" style="background:var(${s.v})"></span>${s.label}</div>
+        <div class="big">${pct(s.rate)}<small>が気づいた</small></div>
+        <div class="meta">${s.k} / ${s.n} 人 ・ 後半の平均勝率 ${pct(s.meanLast)}</div>
+      </div>`).join('');
+
+    $('legend1').innerHTML = S.map((s) => `<span><i style="background:var(${s.v})"></i>${s.label}（${s.n}人）</span>`).join('');
+    drawCurve(S);
+    drawBars(S);
+    drawTable(ps);
+  }
+
+  // ---------- 折れ線：勝率の推移 ----------
+  function drawCurve(S) {
+    const el = $('curve');
+    const nB = Math.max(1, ...S.map((s) => s.curve.length));
+    if (!S.some((s) => s.n)) { el.innerHTML = '<div class="empty">まだデータがありません</div>'; return; }
+    const W = 680, H = 300, m = { l: 44, r: 96, t: 12, b: 34 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const x = (i) => m.l + (nB === 1 ? iw / 2 : i * iw / (nB - 1));
+    const y = (v) => m.t + (1 - v) * ih;
+    let g = '';
+    [0, .25, .5, .75, 1].forEach((v) => {
+      g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)" stroke-width="1" ${v === .5 ? 'stroke-dasharray="5 4" stroke="var(--text-3)"' : ''}/>`;
+      g += `<text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end" font-size="12" fill="var(--text-2)">${v * 100}%</text>`;
+    });
+    for (let i = 0; i < nB; i++) {
+      g += `<text x="${x(i)}" y="${H - m.b + 18}" text-anchor="middle" font-size="12" fill="var(--text-2)">${i * BLOCK + 1}–${(i + 1) * BLOCK}</text>`;
+    }
+    g += `<text x="${m.l + iw / 2}" y="${H - 2}" text-anchor="middle" font-size="12" fill="var(--text-3)">試行</text>`;
+    // 終点ラベルが重ならないよう少しずらす
+    const ends = S.filter((s) => s.n).map((s) => {
+      const last = s.curve.length - 1;
+      return { s, x: x(last), y: y(s.curve[last] ?? .5) };
+    }).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 16) ends[i].y = ends[i - 1].y + 16;
+    S.forEach((s) => {
+      if (!s.n) return;
+      const pts = s.curve.map((v, i) => v == null ? null : [x(i), y(v)]).filter(Boolean);
+      g += `<polyline points="${pts.map((p) => p.join(',')).join(' ')}" fill="none" stroke="var(${s.v})" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      pts.forEach((p) => { g += `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="var(${s.v})" stroke="var(--surface)" stroke-width="2"/>`; });
+    });
+    ends.forEach((e) => { g += `<text x="${e.x + 10}" y="${e.y + 4}" font-size="13" font-weight="700" fill="var(--text-1)">${e.s.label}</text>`; });
+    g += `<line id="cross" x1="0" x2="0" y1="${m.t}" y2="${m.t + ih}" stroke="var(--text-3)" stroke-width="1" style="display:none"/>`;
+    g += `<rect x="${m.l - 10}" y="${m.t}" width="${iw + 20}" height="${ih}" fill="transparent" id="hit"/>`;
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="条件別の勝率の推移">${g}</svg><div class="tip"></div>`;
+    const svg = el.querySelector('svg'), tip = el.querySelector('.tip'), cross = el.querySelector('#cross');
+    const hit = el.querySelector('#hit');
+    hit.addEventListener('pointermove', (ev) => {
+      const r = svg.getBoundingClientRect(), sx = (ev.clientX - r.left) * W / r.width;
+      const i = Math.max(0, Math.min(nB - 1, Math.round((sx - m.l) / (nB === 1 ? 1 : iw / (nB - 1)))));
+      cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.style.display = '';
+      tip.innerHTML = `<b>試行 ${i * BLOCK + 1}–${(i + 1) * BLOCK}</b>` + S.filter((s) => s.n).map((s) =>
+        `<div class="r"><span><i style="background:var(${s.v})"></i>${s.label}</span><b>${pct(s.curve[i])}</b></div>`).join('');
+      tip.style.display = 'block';
+      const px = x(i) * r.width / W;
+      tip.style.left = Math.min(px + 12, r.width - tip.offsetWidth) + 'px';
+      tip.style.top = '10px';
+    });
+    hit.addEventListener('pointerleave', () => { tip.style.display = 'none'; cross.style.display = 'none'; });
+  }
+
+  // ---------- 棒：気づき率 ----------
+  function drawBars(S) {
+    const el = $('bars');
+    if (!S.some((s) => s.n)) { el.innerHTML = '<div class="empty">まだデータがありません</div>'; return; }
+    const W = 340, H = 300, m = { l: 40, r: 8, t: 24, b: 34 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const bw = iw / S.length * 0.56;
+    const y = (v) => m.t + (1 - v) * ih;
+    let g = '';
+    [0, .5, 1].forEach((v) => {
+      g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/>`;
+      g += `<text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end" font-size="12" fill="var(--text-2)">${v * 100}%</text>`;
+    });
+    S.forEach((s, i) => {
+      const cx = m.l + (i + .5) * iw / S.length, v = isNaN(s.rate) ? 0 : s.rate;
+      const top = y(v), h = Math.max(0, m.t + ih - top), r = Math.min(4, h);
+      g += `<g class="bar" data-i="${i}">`;
+      g += `<rect x="${cx - iw / S.length / 2}" y="${m.t}" width="${iw / S.length}" height="${ih}" fill="transparent"/>`;
+      if (h > 0) g += `<path d="M${cx - bw / 2} ${m.t + ih} V${top + r} Q${cx - bw / 2} ${top} ${cx - bw / 2 + r} ${top} H${cx + bw / 2 - r} Q${cx + bw / 2} ${top} ${cx + bw / 2} ${top + r} V${m.t + ih} Z" fill="var(${s.v})"/>`;
+      g += `<text x="${cx}" y="${top - 8}" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text-1)">${s.n ? pct(s.rate) : '–'}</text>`;
+      g += `<text x="${cx}" y="${H - m.b + 18}" text-anchor="middle" font-size="12" fill="var(--text-2)">${s.label}</text>`;
+      g += `</g>`;
+    });
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="条件別の気づき率">${g}</svg><div class="tip"></div>`;
+    const tip = el.querySelector('.tip'), svg = el.querySelector('svg');
+    el.querySelectorAll('.bar').forEach((b) => {
+      b.addEventListener('pointermove', (ev) => {
+        const s = S[+b.dataset.i], r = el.getBoundingClientRect();
+        tip.innerHTML = `<b>${s.label}</b><div>${s.k} / ${s.n} 人が気づいた（${pct(s.rate)}）</div>`;
+        tip.style.display = 'block';
+        tip.style.left = Math.min(ev.clientX - r.left + 12, r.width - tip.offsetWidth) + 'px';
+        tip.style.top = (ev.clientY - r.top - 50) + 'px';
+      });
+      b.addEventListener('pointerleave', () => { tip.style.display = 'none'; });
+    });
+  }
+
+  // ---------- 表 ----------
+  function drawTable(ps) {
+    const proj = document.body.classList.contains('proj');
+    const label = (id) => (COND.find((c) => c.id === id) || {}).label || id;
+    const v = (id) => (COND.find((c) => c.id === id) || {}).v || '--text-3';
+    const cols = [
+      ['student_id', '学籍番号'], ['condition', '相手'], ['win_rate_first_half', '前半勝率'],
+      ['lastRate', '後半勝率'], ['noticed', '判定'], ['rule_text', '自由記述'],
+    ];
+    const rows = ps.slice().sort((a, b) => {
+      let A = a[sortKey], B = b[sortKey];
+      if (sortKey === 'condition') { A = COND.findIndex((c) => c.id === A); B = COND.findIndex((c) => c.id === B); }
+      return (A > B ? 1 : A < B ? -1 : 0) * sortDir || (b.lastRate - a.lastRate);
+    });
+    if (!rows.length) { $('tbl').innerHTML = '<tr><td class="empty">まだデータがありません</td></tr>'; return; }
+    $('tbl').innerHTML = '<thead><tr>' + cols.map(([k, n]) => `<th data-k="${k}">${n}${sortKey === k ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '</tr></thead><tbody>' +
+      rows.map((p) => `<tr>
+        <td>${proj ? '••••' + esc(p.student_id.slice(-2)) : esc(p.student_id)}</td>
+        <td><span class="pill"><i style="background:var(${v(p.condition)})"></i>${label(p.condition)}</span></td>
+        <td class="num">${pct(+p.win_rate_first_half)}</td>
+        <td class="num">${pct(p.lastRate)}</td>
+        <td>${p.noticed ? '<span class="yes">● 気づいた</span>' : '<span style="color:var(--text-3)">—</span>'}</td>
+        <td class="txt">${esc(p.rule_text)}</td></tr>`).join('') + '</tbody>';
+    $('tbl').querySelectorAll('th').forEach((th) => th.onclick = () => {
+      const k = th.dataset.k; if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = 1; } render();
+    });
+  }
+
+  // ---------- CSV ----------
+  function csv(rows, name) {
+    if (!rows.length) return;
+    const keys = Object.keys(rows[0]).filter((k) => k !== 'T');
+    const q = (s) => '"' + String(s ?? '').replace(/"/g, '""') + '"';
+    const text = '﻿' + [keys.join(',')].concat(rows.map((r) => keys.map((k) => q(clean(r[k]))).join(','))).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = name; a.click();
+  }
+  $('btn-csv').onclick = () => csv(dataset().ps.map((p) => Object.assign({}, p, { last_rate: p.lastRate, noticed: p.noticed ? 1 : 0, lastRate: undefined })), 'hoi_participants.csv');
+  $('btn-csv2').onclick = () => csv(RAW.trials, 'hoi_trials.csv');
+
+  // ---------- デモデータ（admin.html?demo=1） ----------
+  if (new URLSearchParams(location.search).get('demo')) {
+    const pat = ['L', 'L', 'R', 'R'], learnP = { human: .55, shiba: .4, computer: .75 };
+    const texts = { yes: ['左左右右の繰り返し', '2回ずつ同じ方向を向いていた', 'LLRRのパターン？', '途中で規則に気づいた'], no: ['なし', '特になし', 'ランダムだと思う', '右が多かった気がする'] };
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    COND.forEach((c) => {
+      for (let i = 0; i < 20; i++) {
+        const sid = 'S' + c.id[0] + i, sess = 'demo' + c.id + i, learns = rnd() < learnP[c.id];
+        const at = 5 + Math.floor(rnd() * 25); let me = 0;
+        const T = [];
+        for (let t = 0; t < 40; t++) {
+          const opp = pat[t % 4], hit = learns && t >= at ? rnd() < .95 : rnd() < .5;
+          const my = hit ? opp : (opp === 'L' ? 'R' : 'L'); me += hit ? 1 : 0;
+          T.push({ session_id: sess, student_id: sid, condition: c.id, trial: t + 1, my_choice: my, opp_choice: opp, win: hit ? 1 : 0 });
+        }
+        RAW.trials.push(...T);
+        const pool = learns ? texts.yes : texts.no;
+        RAW.participants.push({ session_id: sess, student_id: sid, condition: c.id, started_at: '2026-10-0' + (i % 9 + 1),
+          win_rate_first_half: T.slice(0, 20).reduce((a, x) => a + x.win, 0) / 20, rule_text: pool[Math.floor(rnd() * pool.length)] });
+      }
+    });
+    $('msg').textContent = 'デモデータを表示中';
+  }
+  render();
+})();
+</script>
+</body>
+</html>
