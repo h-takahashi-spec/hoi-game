@@ -88,7 +88,7 @@ td.txt{max-width:460px;line-height:1.6}
     <span id="msg"></span>
   </section>
   <section class="panel controls">
-    <label class="ck">「気づいた」の基準：後半 <input class="num" type="number" id="last-n" min="4" max="40" step="1" value="20"> 試行の勝率が
+    <label class="ck">「気づいた」の基準：後半 <input class="num" type="number" id="last-n" min="4" max="100" step="1" placeholder="半分"> 試行の勝率が
       <input class="num" type="number" id="thr" min="50" max="100" step="5" value="80"> %以上</label>
     <label class="ck">エントロピーの補正係数 k <input class="num" type="number" id="kcoef" min="0.01" max="5" step="0.1" value="1"></label>
     <label class="ck hide-proj"><input type="checkbox" id="no-test" checked> TEST で始まる学籍番号を除く</label>
@@ -116,7 +116,7 @@ td.txt{max-width:460px;line-height:1.6}
 
   <section class="panel">
     <h2>自分の手の読まれにくさ（エントロピー）</h2>
-    <p class="sub">20試行ずつ（前半・後半）、直前の自分の手・相手の手から次の手がどれだけ予測できないかを0〜1で表したもの。1に近いほど予測しにくい。
+    <p class="sub">前半・後半それぞれで、直前の自分の手・相手の手から次の手がどれだけ予測できないかを0〜1で表したもの。1に近いほど予測しにくい。
       計算方法は Takahashi et al. (2014, Cortex) と同じです（6種類の文脈それぞれでエントロピーを求め、最も小さい値をそのブロックの値とする）。
       規則に気づいて「左左右右」を合わせにいくと、相手の手から自分の手が予測できるようになるので、後半は下がります。</p>
     <div class="legend" id="legend2"></div>
@@ -145,6 +145,7 @@ td.txt{max-width:460px;line-height:1.6}
   const clean = (v) => String(v ?? '').replace(/^'/, '');
 
   let RAW = { trials: [], participants: [] };
+  let NMAX = 40;
   let sortKey = 'condition', sortDir = 1;
 
   // ---------- 保存された設定 ----------
@@ -176,7 +177,7 @@ td.txt{max-width:460px;line-height:1.6}
   // ---------- 集計 ----------
   function dataset() {
     const noTest = $('no-test').checked, firstOnly = $('first-only').checked;
-    const lastN = Math.max(1, +$('last-n').value || 20), thr = (+$('thr').value || 80) / 100;
+    const lastNin = +$('last-n').value || 0, thr = (+$('thr').value || 80) / 100;
     let ps = RAW.participants.map((p) => Object.assign({}, p, { student_id: clean(p.student_id), session_id: clean(p.session_id), rule_text: clean(p.rule_text) }));
     if (noTest) ps = ps.filter((p) => !/^TEST/i.test(p.student_id));
     ps.sort((a, b) => String(a.started_at).localeCompare(String(b.started_at)));
@@ -186,21 +187,23 @@ td.txt{max-width:460px;line-height:1.6}
     ps.forEach((p) => {
       const T = (bySess[p.session_id] || []).slice().sort((a, b) => a.trial - b.trial);
       p.T = T;
-      const tail = T.slice(-lastN);
+      const half = Math.floor(T.length / 2);
+      const tail = T.slice(-(lastNin || half));
       p.lastRate = tail.length ? tail.reduce((a, t) => a + (+t.win), 0) / tail.length : NaN;
       p.noticed = p.lastRate >= thr;
       const k = Math.max(0.01, +$('kcoef').value || 1);
-      const e1 = blockEntropy(T, 0, ENT_BLOCK, k), e2 = blockEntropy(T, ENT_BLOCK, ENT_BLOCK * 2, k);
+      // 前半と後半を1ブロックずつ（40試行なら論文と同じ20試行ずつ）
+      const e1 = blockEntropy(T, 0, half, k), e2 = blockEntropy(T, half, half * 2, k);
       p.H1 = e1.H; p.H1_context = e1.pc; p.H2 = e2.H; p.H2_context = e2.pc;
     });
-    return { ps, lastN, thr };
+    const nMax = Math.max(0, ...ps.map((p) => p.T.length));
+    return { ps, lastN: lastNin || Math.floor(nMax / 2), thr, nMax };
   }
 
   // ---------- エントロピー（Takahashi et al., 2014, Cortex 58: 289-300 の方法） ----------
   // p(d|c) = (n(d|c)+k) / Σ_i (n(i|c)+k)
   // H_pc = -(1/N_pc) Σ_c Σ_d p(d|c) log2 p(d|c)   … N_pc は文脈 c のとりうる数
   // 文脈 pc は S1, S2, O1, O2, S1&O1, none の6種類。ブロックの値は6つのうち最小のもの
-  const ENT_BLOCK = 20;
   const LR = ['L', 'R'];
   const PAIRS = ['LL', 'LR', 'RL', 'RR'];
   const CONTEXTS = {
@@ -254,7 +257,8 @@ td.txt{max-width:460px;line-height:1.6}
   }
 
   function render() {
-    const { ps, lastN, thr } = dataset();
+    const { ps, lastN, thr, nMax } = dataset();
+    NMAX = nMax;
     const S = summary(ps);
     $('thr-desc').textContent = `後半${lastN}試行の勝率が${Math.round(thr * 100)}%以上だった人の割合。棒の上の数字は「気づいた人数 / 参加者数」。`;
 
@@ -377,7 +381,8 @@ td.txt{max-width:460px;line-height:1.6}
       g += `<line x1="${m.l}" x2="${m.l + iw}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/>`;
       g += `<text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end" font-size="12" fill="var(--text-2)">${v.toFixed(1)}</text>`;
     }
-    ['前半（1–20）', '後半（21–40）'].forEach((t, i) => { g += `<text x="${xs[i]}" y="${H - 8}" text-anchor="middle" font-size="12" fill="var(--text-2)">${t}</text>`; });
+    const hN = Math.floor(NMAX / 2);
+    [`前半（1–${hN}）`, `後半（${hN + 1}–${hN * 2}）`].forEach((t, i) => { g += `<text x="${xs[i]}" y="${H - 8}" text-anchor="middle" font-size="12" fill="var(--text-2)">${t}</text>`; });
     const ends = [];
     S.forEach((s, i) => {
       if (!s.n || isNaN(s.H1)) return;
@@ -447,8 +452,8 @@ td.txt{max-width:460px;line-height:1.6}
   }
   $('btn-csv').onclick = () => csv(dataset().ps.map((p) => {
     const o = Object.assign({}, p, { last_rate: p.lastRate, noticed: p.noticed ? 1 : 0,
-      entropy_first20: isNaN(p.H1) ? '' : p.H1.toFixed(4), entropy_first20_context: p.H1_context,
-      entropy_last20: isNaN(p.H2) ? '' : p.H2.toFixed(4), entropy_last20_context: p.H2_context });
+      entropy_first_half: isNaN(p.H1) ? '' : p.H1.toFixed(4), entropy_first_half_context: p.H1_context,
+      entropy_last_half: isNaN(p.H2) ? '' : p.H2.toFixed(4), entropy_last_half_context: p.H2_context });
     ['T', 'lastRate', 'H1', 'H2', 'H1_context', 'H2_context'].forEach((k) => delete o[k]);
     return o;
   }), 'hoi_participants.csv');
