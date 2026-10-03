@@ -1,7 +1,7 @@
 // ===== 設定ファイル（ここだけ書き換えれば動きます） =====
 window.HOI_CONFIG = {
   // Google Apps Script のウェブアプリ URL（README の手順で取得して貼る）
-  GAS_URL: 'https://script.google.com/macros/s/AKfycbzrFStYHP0qvV3ydTGfXZBHBkxGIogLfUbgXz0QqaoBzqAJ31c-8q70qF28huWPtiyw/exec',
+  GAS_URL: 'https://script.google.com/macros/s/AKfycbyZIqAn0Ea8jpsQKQhb4kzJa3txW_SCMB_yU95Xhawp5NFY9pSnHBE_BLgvSnhTmS1T/exec',
 
   // 試行数
   N_TRIALS: 40,
@@ -23,11 +23,16 @@ window.HOI_CONFIG = {
   // 割り付けに使う「塩」。学期ごとに変えると、同じ学籍番号でも別の条件になります
   ASSIGN_SALT: 'hoi-2026-fall',
 
+  // コンピュータ条件の見た目
+  //   'arrow' … 画面に ← / → が出るだけのシンプルな表示
+  //   'robot' … メカメカしいロボット
+  COMPUTER_STYLE: 'arrow',
+
   // 条件（順番を変えないでください）
   CONDITIONS: ['human', 'shiba', 'computer'],
 
   // 過去の相手の手を一覧で見せるか（false 推奨：見せると誰でも気づきやすくなります）
   SHOW_HISTORY: false,
 
-  APP_VERSION: '1.0',
+  APP_VERSION: '1.2',
 };

@@ -119,13 +119,30 @@
     <rect x="104" y="188" width="92" height="8" rx="2" fill="#6d767e" stroke="${INK}" stroke-width="2"/>
   </g>`;
 
+  // ---------- コンピュータ（シンプル版：画面に矢印が出るだけ） ----------
+  const arrowL = 'M206 140 H106 M142 102 L104 140 L142 178';
+  const arrowR = 'M94 140 H194 M158 102 L196 140 L158 178';
+  const computerArrow = `
+  <g class="head">
+    <rect x="40" y="62" width="220" height="156" rx="14" fill="#fbfbf9" ${O}/>
+    <g class="face">
+      <circle class="wait" cx="150" cy="140" r="7" fill="${INK}"/>
+      <path class="arr arr-L" d="${arrowL}" fill="none" stroke="${INK}" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="arr arr-R" d="${arrowR}" fill="none" stroke="${INK}" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>`;
+
   window.HOI_CHARS = {
     human:    { id: 'human',    label: '人間',       intro: 'あなたの相手は、この人です。',           svg: human },
     shiba:    { id: 'shiba',    label: '柴犬',       intro: 'あなたの相手は、この柴犬です。',         svg: shiba },
-    computer: { id: 'computer', label: 'コンピュータ', intro: 'あなたの相手は、このコンピュータです。', svg: computer },
+    computer: { id: 'computer', label: 'コンピュータ', intro: 'あなたの相手は、このコンピュータです。', svg: computer, svgArrow: computerArrow },
   };
 
+  // コンピュータ条件は config.js の COMPUTER_STYLE で見た目を切り替える
   window.HOI_CHAR_SVG = function (id, extraClass) {
-    return `<svg class="char ${extraClass || ''}" data-char="${id}" viewBox="0 0 300 330" role="img" aria-label="${window.HOI_CHARS[id].label}">${window.HOI_CHARS[id].svg}</svg>`;
+    const ch = window.HOI_CHARS[id];
+    const arrow = id === 'computer' && (window.HOI_CONFIG || {}).COMPUTER_STYLE !== 'robot';
+    const key = arrow ? 'computer-arrow' : id;
+    return `<svg class="char ${extraClass || ''}" data-char="${key}" viewBox="0 0 300 330" role="img" aria-label="${ch.label}">${arrow ? ch.svgArrow : ch.svg}</svg>`;
   };
 })();

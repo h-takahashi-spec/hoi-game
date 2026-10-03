@@ -1,4 +1,5 @@
 // ===== あっち向いてホイ・ゲーム本体 =====
+window.HOI_GAME_VERSION = '1.2';
 (function () {
   const C = window.HOI_CONFIG;
   const CH = window.HOI_CHARS;
@@ -205,6 +206,7 @@
     T.forEach((t) => { streak = t.win ? streak + 1 : 0; best = Math.max(best, streak); });
     const common = {
       session_id: S.session, student_id: S.sid, condition: S.cond, cond_override: S.override, attempt: S.attempt,
+      computer_style: S.cond === 'computer' ? (C.COMPUTER_STYLE === 'robot' ? 'robot' : 'arrow') : '',
       device: device(), app_version: C.APP_VERSION,
     };
     const finishedAt = nowIso();

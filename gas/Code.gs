@@ -17,13 +17,13 @@
 const ADMIN_KEY = 'hoi';
 
 const TRIAL_HEADERS = [
-  'received_at', 'session_id', 'student_id', 'condition', 'cond_override', 'attempt',
+  'received_at', 'session_id', 'student_id', 'condition', 'computer_style', 'cond_override', 'attempt',
   'trial', 'my_choice', 'opp_choice', 'win', 'points', 'my_score', 'opp_score',
   'rt_ms', 'delay_ms', 'trial_at', 'device', 'app_version',
 ];
 
 const PARTICIPANT_HEADERS = [
-  'received_at', 'session_id', 'student_id', 'condition', 'cond_override', 'attempt',
+  'received_at', 'session_id', 'student_id', 'condition', 'computer_style', 'cond_override', 'attempt',
   'n_trials', 'total_wins', 'final_score', 'win_rate_first_half', 'win_rate_last_half', 'max_streak',
   'rule_text', 'duration_s', 'pattern', 'delay_min_ms', 'delay_max_ms',
   'device', 'screen', 'user_agent', 'started_at', 'finished_at', 'app_version',

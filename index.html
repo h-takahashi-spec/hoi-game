@@ -50,6 +50,12 @@ label{font-weight:700;font-size:15px;display:block;margin-bottom:8px}
 .char .body{transform-box:view-box;transform-origin:150px 320px;animation:breathe 3.2s ease-in-out infinite}
 .char .eyes{transform-box:fill-box;transform-origin:center;animation:blink 4.6s infinite}
 .char .antenna,.char .led{animation:pulse 2.2s ease-in-out infinite}
+/* シンプルなコンピュータ：首は振らず、矢印を出すだけ */
+.char[data-char="computer-arrow"] .head,.char[data-char="computer-arrow"] .face{transform:none!important;transition:none}
+.char .arr{opacity:0}
+.char.look-L .arr-L,.char.look-R .arr-R{opacity:1}
+.char.look-L .wait,.char.look-R .wait{opacity:0}
+.char .wait{animation:pulse 1.2s ease-in-out infinite}
 @keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.012)}}
 @keyframes blink{0%,94%,100%{transform:scaleY(1)}96.5%{transform:scaleY(.1)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
@@ -158,8 +164,8 @@ label{font-weight:700;font-size:15px;display:block;margin-bottom:8px}
     <div class="intro-stage" id="intro-char"></div>
     <div class="card rules">
       <p style="font-weight:800;font-size:17px" id="intro-line"></p>
-      <div class="rule"><b class="ic">1</b><span>あなたは、<b>左</b>か<b>右</b>を指さします。<br>あいても同時に、<b>左</b>か<b>右</b>に顔を向けます。</span></div>
-      <div class="rule"><b class="ic">2</b><span>あいてが、あなたの<b>指さした方を向いたら「あたり」で <span id="r-win">+1</span>点</b>。<br>ちがう方を向いたら<b>「はずれ」で <span id="r-lose">−1</span>点</b>。</span></div>
+      <div class="rule"><b class="ic">1</b><span>あなたは、<b>左</b>か<b>右</b>を指さします。<br>あいても同時に、<b>左</b>か<b>右</b>を出します。</span></div>
+      <div class="rule"><b class="ic">2</b><span>あいてが、あなたの<b>指さした方を出したら「あたり」で <span id="r-win">+1</span>点</b>。<br>ちがう方を出したら<b>「はずれ」で <span id="r-lose">−1</span>点</b>。</span></div>
       <div class="rule"><b class="ic">3</b><span>全部で <b id="intro-n">40</b> 回。できるだけたくさん点を取ってください。</span></div>
       <p class="muted">※ 左右は、画面で見たときの左右です。</p>
     </div>
@@ -197,7 +203,7 @@ label{font-weight:700;font-size:15px;display:block;margin-bottom:8px}
     <h1>おつかれさまでした</h1>
     <div class="big-score" id="post-score"></div>
     <div class="card">
-      <label for="rule-text">あいての出し方（顔の向け方）に、何か規則はありましたか？<br>気づいたことを自由に書いてください。</label>
+      <label for="rule-text">あいての出し方に、何か規則はありましたか？<br>気づいたことを自由に書いてください。</label>
       <textarea id="rule-text" placeholder="特になければ「なし」と書いてください"></textarea>
       <div class="err" id="rule-err"></div>
     </div>
@@ -226,8 +232,17 @@ label{font-weight:700;font-size:15px;display:block;margin-bottom:8px}
   </symbol>
 </svg>
 
-<script src="config.js"></script>
-<script src="js/characters.js"></script>
-<script src="js/game.js"></script>
+<!-- ?v= を更新すると、ブラウザやGitHub Pagesに残った古いファイルが使われなくなります -->
+<script src="config.js?v=1.2"></script>
+<script src="js/characters.js?v=1.2"></script>
+<script src="js/game.js?v=1.2"></script>
+<script>
+  // 古い game.js が読み込まれていたら、ゲームを始める前に知らせる
+  if (window.HOI_GAME_VERSION !== '1.2') {
+    document.querySelector('#s-id .card').insertAdjacentHTML('afterend',
+      '<div class="card" style="border-color:#c4473a;color:#c4473a;font-weight:700">古いファイルが読み込まれています。ページを再読み込み（スマホは下に引っぱる／PCは Ctrl+Shift+R）してください。</div>');
+    document.getElementById('btn-id').disabled = true;
+  }
+</script>
 </body>
 </html>
