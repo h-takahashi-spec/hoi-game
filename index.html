@@ -84,10 +84,15 @@ label{font-weight:700;font-size:15px;display:block;margin-bottom:8px}
 .call{position:absolute;top:44px;left:0;right:0;text-align:center;font-weight:800;font-size:clamp(22px,6vw,30px);z-index:2;min-height:1.3em;letter-spacing:.04em}
 .call.hoi{color:var(--accent);animation:pop .3s}
 @keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
-.pointer{position:absolute;top:48%;width:64px;height:64px;z-index:3;opacity:0;transition:opacity .15s}
-.pointer.on{opacity:1}
-.pointer.L{left:max(8px,calc(50% - 160px));transform:scaleX(-1)}
-.pointer.R{right:max(8px,calc(50% - 160px))}
+.pointer{position:absolute;left:50%;top:40%;width:64px;height:64px;margin:-32px 0 0 -32px;z-index:3;opacity:0;pointer-events:none;
+  transition:transform .12s cubic-bezier(.2,1.4,.4,1),opacity .08s}
+.pointer svg{display:block;width:100%;height:100%;transition:transform .12s}
+.pointer.ready{opacity:1;animation:shake .5s ease-in-out infinite}
+.pointer.ready svg{transform:rotate(-90deg)}
+.pointer.L{opacity:1;transform:translateX(-120px)}
+.pointer.L svg{transform:scaleX(-1)}
+.pointer.R{opacity:1;transform:translateX(120px)}
+@keyframes shake{0%,100%{transform:translateY(52px)}50%{transform:translateY(44px)}}
 .result{position:absolute;bottom:14px;left:0;right:0;margin:0 auto;width:fit-content;max-width:calc(100% - 16px);padding:6px 16px;border-radius:999px;border:2px solid var(--ink);
   font-weight:800;font-size:18px;background:#fff;white-space:nowrap;z-index:3;opacity:0}
 .result.on{opacity:1;animation:pop .3s}
@@ -163,8 +168,10 @@ label{font-weight:700;font-size:15px;display:block;margin-bottom:8px}
     <div class="stage">
       <span class="tag opp-name" id="opp-name">あいて</span>
       <div class="call" id="call"></div>
-      <svg class="pointer" id="pointer" viewBox="0 0 64 64" aria-hidden="true"><use href="#hand"/></svg>
-      <div class="char-box" id="game-char"></div>
+      <div class="char-box">
+        <div id="game-char" style="width:100%;height:100%"></div>
+        <div class="pointer" id="pointer" aria-hidden="true"><svg viewBox="0 0 64 64"><use href="#hand"/></svg></div>
+      </div>
       <div class="result" id="result"></div>
     </div>
     <div class="hist" id="hist"></div>
