@@ -90,6 +90,7 @@ td.txt{max-width:460px;line-height:1.6}
   <section class="panel controls">
     <label class="ck">「気づいた」の基準：後半 <input class="num" type="number" id="last-n" min="4" max="40" step="1" value="20"> 試行の勝率が
       <input class="num" type="number" id="thr" min="50" max="100" step="5" value="80"> %以上</label>
+    <label class="ck">エントロピーの補正係数 k <input class="num" type="number" id="kcoef" min="0.01" max="5" step="0.1" value="1"></label>
     <label class="ck hide-proj"><input type="checkbox" id="no-test" checked> TEST で始まる学籍番号を除く</label>
     <label class="ck hide-proj"><input type="checkbox" id="first-only" checked> 同じ学籍番号は最初の1回だけ使う</label>
     <button id="btn-proj">投影モード</button>
@@ -111,6 +112,15 @@ td.txt{max-width:460px;line-height:1.6}
       <p class="sub" id="thr-desc"></p>
       <div class="chart" id="bars"></div>
     </div>
+  </section>
+
+  <section class="panel">
+    <h2>自分の手の読まれにくさ（エントロピー）</h2>
+    <p class="sub">20試行ずつ（前半・後半）、直前の自分の手・相手の手から次の手がどれだけ予測できないかを0〜1で表したもの。1に近いほど予測しにくい。
+      計算方法は Takahashi et al. (2014, Cortex) と同じです（6種類の文脈それぞれでエントロピーを求め、最も小さい値をそのブロックの値とする）。
+      規則に気づいて「左左右右」を合わせにいくと、相手の手から自分の手が予測できるようになるので、後半は下がります。</p>
+    <div class="legend" id="legend2"></div>
+    <div class="chart" id="ent" style="max-width:720px"></div>
   </section>
 
   <section class="panel">
@@ -160,7 +170,7 @@ td.txt{max-width:460px;line-height:1.6}
   $('btn-load').onclick = load;
   let timer = null;
   $('auto').onchange = (e) => { clearInterval(timer); if (e.target.checked) { load(); timer = setInterval(load, 10000); } };
-  ['last-n', 'thr', 'no-test', 'first-only'].forEach((id) => $(id).addEventListener('input', render));
+  ['last-n', 'thr', 'no-test', 'first-only', 'kcoef'].forEach((id) => $(id).addEventListener('input', render));
   $('btn-proj').onclick = () => { document.body.classList.toggle('proj'); $('btn-proj').textContent = document.body.classList.contains('proj') ? '投影モードを終える' : '投影モード'; render(); };
 
   // ---------- 集計 ----------
@@ -179,9 +189,52 @@ td.txt{max-width:460px;line-height:1.6}
       const tail = T.slice(-lastN);
       p.lastRate = tail.length ? tail.reduce((a, t) => a + (+t.win), 0) / tail.length : NaN;
       p.noticed = p.lastRate >= thr;
+      const k = Math.max(0.01, +$('kcoef').value || 1);
+      const e1 = blockEntropy(T, 0, ENT_BLOCK, k), e2 = blockEntropy(T, ENT_BLOCK, ENT_BLOCK * 2, k);
+      p.H1 = e1.H; p.H1_context = e1.pc; p.H2 = e2.H; p.H2_context = e2.pc;
     });
     return { ps, lastN, thr };
   }
+
+  // ---------- エントロピー（Takahashi et al., 2014, Cortex 58: 289-300 の方法） ----------
+  // p(d|c) = (n(d|c)+k) / Σ_i (n(i|c)+k)
+  // H_pc = -(1/N_pc) Σ_c Σ_d p(d|c) log2 p(d|c)   … N_pc は文脈 c のとりうる数
+  // 文脈 pc は S1, S2, O1, O2, S1&O1, none の6種類。ブロックの値は6つのうち最小のもの
+  const ENT_BLOCK = 20;
+  const LR = ['L', 'R'];
+  const PAIRS = ['LL', 'LR', 'RL', 'RR'];
+  const CONTEXTS = {
+    S1:   { all: LR,    need: 1, get: (m, o, i) => m[i - 1] },
+    S2:   { all: PAIRS, need: 2, get: (m, o, i) => m[i - 2] + m[i - 1] },
+    O1:   { all: LR,    need: 1, get: (m, o, i) => o[i - 1] },
+    O2:   { all: PAIRS, need: 2, get: (m, o, i) => o[i - 2] + o[i - 1] },
+    S1O1: { all: PAIRS, need: 1, get: (m, o, i) => m[i - 1] + o[i - 1] },
+    none: { all: [''],  need: 0, get: () => '' },
+  };
+  function blockEntropy(T, start, end, k) {
+    const m = T.map((t) => t.my_choice), o = T.map((t) => t.opp_choice);
+    if (end > T.length) return { H: NaN, pc: '' };
+    let best = { H: Infinity, pc: '' };
+    Object.keys(CONTEXTS).forEach((pc) => {
+      const C = CONTEXTS[pc], n = {};
+      C.all.forEach((c) => (n[c] = { L: 0, R: 0 }));
+      for (let i = start; i < end; i++) {
+        if (i < C.need) continue;              // 直前の手がまだない試行は使わない
+        const c = C.get(m, o, i);
+        if (n[c] && (m[i] === 'L' || m[i] === 'R')) n[c][m[i]]++;
+      }
+      let H = 0;
+      C.all.forEach((c) => {
+        const tot = n[c].L + n[c].R + 2 * k;
+        LR.forEach((d) => { const p = (n[c][d] + k) / tot; if (p > 0) H -= p * Math.log2(p); });
+      });
+      H /= C.all.length;
+      if (H < best.H) best = { H, pc };
+    });
+    return best;
+  }
+  const mean = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN;
+  const se = (a) => { if (a.length < 2) return NaN; const mu = mean(a); return Math.sqrt(a.reduce((x, y) => x + (y - mu) ** 2, 0) / (a.length - 1) / a.length); };
 
   function summary(ps) {
     return COND.map((c) => {
@@ -195,7 +248,8 @@ td.txt{max-width:460px;line-height:1.6}
         curve.push(vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : null);
       }
       const lr = g.map((p) => p.lastRate).filter((x) => !isNaN(x));
-      return Object.assign({}, c, { n, k, rate: n ? k / n : NaN, curve, meanLast: lr.length ? lr.reduce((a, v) => a + v, 0) / lr.length : NaN });
+      const h1 = g.map((p) => p.H1).filter((x) => !isNaN(x)), h2 = g.map((p) => p.H2).filter((x) => !isNaN(x));
+      return Object.assign({}, c, { H1: mean(h1), H1se: se(h1), H2: mean(h2), H2se: se(h2), n, k, rate: n ? k / n : NaN, curve, meanLast: lr.length ? lr.reduce((a, v) => a + v, 0) / lr.length : NaN });
     });
   }
 
@@ -215,6 +269,8 @@ td.txt{max-width:460px;line-height:1.6}
     $('legend1').innerHTML = S.map((s) => `<span><i style="background:var(${s.v})"></i>${s.label}（${s.n}人）</span>`).join('');
     drawCurve(S);
     drawBars(S);
+    $('legend2').innerHTML = $('legend1').innerHTML;
+    drawEntropy(S);
     drawTable(ps);
   }
 
@@ -305,6 +361,51 @@ td.txt{max-width:460px;line-height:1.6}
     });
   }
 
+  // ---------- 傾きグラフ：エントロピー前半→後半 ----------
+  function drawEntropy(S) {
+    const el = $('ent');
+    if (!S.some((s) => s.n)) { el.innerHTML = '<div class="empty">まだデータがありません</div>'; return; }
+    const W = 640, H = 280, m = { l: 44, r: 150, t: 16, b: 34 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const vals = S.flatMap((s) => [s.H1, s.H2]).filter((v) => !isNaN(v));
+    let lo = Math.floor((Math.min(...vals) - 0.05) * 10) / 10, hi = 1;
+    lo = Math.max(0, Math.min(lo, 0.5));
+    const y = (v) => m.t + (hi - v) / (hi - lo) * ih;
+    const xs = [m.l + iw * 0.15, m.l + iw * 0.85];
+    let g = '';
+    for (let v = lo; v <= hi + 1e-9; v += 0.1) {
+      g += `<line x1="${m.l}" x2="${m.l + iw}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/>`;
+      g += `<text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end" font-size="12" fill="var(--text-2)">${v.toFixed(1)}</text>`;
+    }
+    ['前半（1–20）', '後半（21–40）'].forEach((t, i) => { g += `<text x="${xs[i]}" y="${H - 8}" text-anchor="middle" font-size="12" fill="var(--text-2)">${t}</text>`; });
+    const ends = [];
+    S.forEach((s, i) => {
+      if (!s.n || isNaN(s.H1)) return;
+      const p1 = [xs[0], y(s.H1)], p2 = [xs[1], y(isNaN(s.H2) ? s.H1 : s.H2)];
+      [[p1, s.H1se], [p2, s.H2se]].forEach(([pt, e]) => { if (!isNaN(e)) g += `<line x1="${pt[0]}" x2="${pt[0]}" y1="${y(Math.min(hi, (pt === p1 ? s.H1 : s.H2) + e))}" y2="${y((pt === p1 ? s.H1 : s.H2) - e)}" stroke="var(${s.v})" stroke-width="2" opacity=".45"/>`; });
+      g += `<line x1="${p1[0]}" y1="${p1[1]}" x2="${p2[0]}" y2="${p2[1]}" stroke="var(${s.v})" stroke-width="2"/>`;
+      g += `<g class="pt" data-i="${i}" data-h="1"><circle cx="${p1[0]}" cy="${p1[1]}" r="12" fill="transparent"/><circle cx="${p1[0]}" cy="${p1[1]}" r="5" fill="var(${s.v})" stroke="var(--surface)" stroke-width="2"/></g>`;
+      g += `<g class="pt" data-i="${i}" data-h="2"><circle cx="${p2[0]}" cy="${p2[1]}" r="12" fill="transparent"/><circle cx="${p2[0]}" cy="${p2[1]}" r="5" fill="var(${s.v})" stroke="var(--surface)" stroke-width="2"/></g>`;
+      ends.push({ s, y: p2[1] });
+    });
+    ends.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 16) ends[i].y = ends[i - 1].y + 16;
+    ends.forEach((e) => { g += `<text x="${xs[1] + 12}" y="${e.y + 4}" font-size="13" font-weight="700" fill="var(--text-1)">${e.s.label} ${e.s.H1.toFixed(2)}→${isNaN(e.s.H2) ? '–' : e.s.H2.toFixed(2)}</text>`; });
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="条件別のエントロピー（前半と後半）">${g}</svg><div class="tip"></div>`;
+    const tip = el.querySelector('.tip');
+    el.querySelectorAll('.pt').forEach((pt) => {
+      pt.addEventListener('pointermove', (ev) => {
+        const s = S[+pt.dataset.i], h = pt.dataset.h === '1', r = el.getBoundingClientRect();
+        const v = h ? s.H1 : s.H2, e = h ? s.H1se : s.H2se;
+        tip.innerHTML = `<b>${s.label}・${h ? '前半' : '後半'}</b><div>平均 ${isNaN(v) ? '–' : v.toFixed(3)}${isNaN(e) ? '' : '（SE ' + e.toFixed(3) + '）'}</div><div>${s.n}人</div>`;
+        tip.style.display = 'block';
+        tip.style.left = Math.min(ev.clientX - r.left + 12, r.width - tip.offsetWidth) + 'px';
+        tip.style.top = (ev.clientY - r.top - 60) + 'px';
+      });
+      pt.addEventListener('pointerleave', () => { tip.style.display = 'none'; });
+    });
+  }
+
   // ---------- 表 ----------
   function drawTable(ps) {
     const proj = document.body.classList.contains('proj');
@@ -312,7 +413,7 @@ td.txt{max-width:460px;line-height:1.6}
     const v = (id) => (COND.find((c) => c.id === id) || {}).v || '--text-3';
     const cols = [
       ['student_id', '学籍番号'], ['condition', '相手'], ['win_rate_first_half', '前半勝率'],
-      ['lastRate', '後半勝率'], ['noticed', '判定'], ['rule_text', '自由記述'],
+      ['lastRate', '後半勝率'], ['noticed', '判定'], ['H1', 'H 前半'], ['H2', 'H 後半'], ['rule_text', '自由記述'],
     ];
     const rows = ps.slice().sort((a, b) => {
       let A = a[sortKey], B = b[sortKey];
@@ -327,6 +428,8 @@ td.txt{max-width:460px;line-height:1.6}
         <td class="num">${pct(+p.win_rate_first_half)}</td>
         <td class="num">${pct(p.lastRate)}</td>
         <td>${p.noticed ? '<span class="yes">● 気づいた</span>' : '<span style="color:var(--text-3)">—</span>'}</td>
+        <td class="num">${isNaN(p.H1) ? '–' : p.H1.toFixed(2)}</td>
+        <td class="num">${isNaN(p.H2) ? '–' : p.H2.toFixed(2)}</td>
         <td class="txt">${esc(p.rule_text)}</td></tr>`).join('') + '</tbody>';
     $('tbl').querySelectorAll('th').forEach((th) => th.onclick = () => {
       const k = th.dataset.k; if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = 1; } render();
@@ -342,7 +445,13 @@ td.txt{max-width:460px;line-height:1.6}
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = name; a.click();
   }
-  $('btn-csv').onclick = () => csv(dataset().ps.map((p) => Object.assign({}, p, { last_rate: p.lastRate, noticed: p.noticed ? 1 : 0, lastRate: undefined })), 'hoi_participants.csv');
+  $('btn-csv').onclick = () => csv(dataset().ps.map((p) => {
+    const o = Object.assign({}, p, { last_rate: p.lastRate, noticed: p.noticed ? 1 : 0,
+      entropy_first20: isNaN(p.H1) ? '' : p.H1.toFixed(4), entropy_first20_context: p.H1_context,
+      entropy_last20: isNaN(p.H2) ? '' : p.H2.toFixed(4), entropy_last20_context: p.H2_context });
+    ['T', 'lastRate', 'H1', 'H2', 'H1_context', 'H2_context'].forEach((k) => delete o[k]);
+    return o;
+  }), 'hoi_participants.csv');
   $('btn-csv2').onclick = () => csv(RAW.trials, 'hoi_trials.csv');
 
   // ---------- デモデータ（admin.html?demo=1） ----------
