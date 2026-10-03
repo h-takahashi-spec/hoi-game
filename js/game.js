@@ -101,7 +101,7 @@
     $('prog').style.width = (S.t / C.N_TRIALS * 100) + '%';
     $('call').textContent = ''; $('call').className = 'call';
     $('result').className = 'result';
-    $('pointer').className.baseVal = 'pointer';
+    $('pointer').className = 'pointer';
     $('prompt').textContent = 'どっちを指さす？';
     const ch = $('choices'); ch.classList.remove('locked');
     ch.querySelectorAll('.choice').forEach((b) => { b.disabled = false; b.classList.remove('picked'); });
@@ -116,7 +116,7 @@
     const ch = $('choices'); ch.classList.add('locked');
     ch.querySelectorAll('.choice').forEach((b) => { b.disabled = true; b.classList.toggle('picked', b.dataset.c === my); });
     $('prompt').textContent = '';
-    $('pointer').className.baseVal = 'pointer on ' + my;
+    $('pointer').className = 'pointer ready';  // 手を構えるだけ（向きはまだ見せない）
 
     const delay = Math.round(C.DELAY_MIN_MS + Math.random() * (C.DELAY_MAX_MS - C.DELAY_MIN_MS));
     $('call').textContent = 'あっち向いて…';
@@ -125,6 +125,7 @@
     const opp = oppMove(S.t);
     $('call').textContent = 'ホイ！'; $('call').className = 'call hoi';
     look(opp);
+    $('pointer').className = 'pointer ' + my;  // 首が動くのと同時に、選んだ方へ指さす
     await sleep(320);
 
     const win = my === opp ? 1 : 0;
