@@ -1,7 +1,7 @@
 // ===== 設定ファイル（ここだけ書き換えれば動きます） =====
 window.HOI_CONFIG = {
   // Google Apps Script のウェブアプリ URL（README の手順で取得して貼る）
-  GAS_URL: 'https://script.google.com/macros/s/AKfycbwUOkXpRQjU0l0fcnxFeZVGrsekv8INtBQ-sYL4DasKSML0ouNwsNZdmjogf-Ll8CE/exec',
+  GAS_URL: 'https://script.google.com/macros/s/AKfycbzrFStYHP0qvV3ydTGfXZBHBkxGIogLfUbgXz0QqaoBzqAJ31c-8q70qF28huWPtiyw/exec',
 
   // 試行数
   N_TRIALS: 40,
@@ -12,6 +12,10 @@ window.HOI_CONFIG = {
   // 「あっち向いて…」から「ホイ！」までの待ち時間（ミリ秒）。全条件共通の一様乱数
   DELAY_MIN_MS: 600,
   DELAY_MAX_MS: 1600,
+
+  // 得点：あたりで WIN_POINTS、はずれで LOSS_POINTS（論文の硬貨合わせ課題と同じく ±1 のゼロサム）
+  WIN_POINTS: 1,
+  LOSS_POINTS: -1,
 
   // 結果を表示してから次の回に進むまでの時間（ミリ秒）
   RESULT_HOLD_MS: 1300,

@@ -48,7 +48,7 @@
   const S = {
     sid: '', cond: '', override: 0, attempt: 1,
     session: Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4),
-    startedAt: '', trials: [], me: 0, op: 0, t: 0, busy: true, shownAt: 0, payload: null,
+    startedAt: '', trials: [], me: 0, wins: 0, losses: 0, t: 0, busy: true, shownAt: 0, payload: null,
   };
 
   function show(id) {
@@ -75,6 +75,7 @@
     $('intro-char').innerHTML = window.HOI_CHAR_SVG(S.cond);
     $('intro-line').textContent = CH[S.cond].intro;
     $('intro-n').textContent = C.N_TRIALS;
+    $('r-win').textContent = fmt(C.WIN_POINTS); $('r-lose').textContent = fmt(C.LOSS_POINTS);
   }
   $('btn-start').onclick = () => {
     S.startedAt = nowIso();
@@ -92,11 +93,34 @@
     el.classList.remove('look-L', 'look-R');
     if (dir) el.classList.add('look-' + dir);
   }
+  // 吹き出しを、正面を向いたキャラクタの頭のすぐ右上に置く（画面の高さが違っても頭から離れないように）
+  let headBox = null;
+  function measureHead() {
+    look(null);
+    const el = charEl(); if (!el) return;
+    const st = document.querySelector('.stage').getBoundingClientRect();
+    // getBBox は首振りの変形を含まない元の形なので、アニメーション中でも位置がぶれない
+    const r = el.getBoundingClientRect(), vb = el.viewBox.baseVal, bb = el.querySelector('.head').getBBox();
+    const k = Math.min(r.width / vb.width, r.height / vb.height);
+    const ox = r.left + (r.width - vb.width * k) / 2 - st.left, oy = r.top + (r.height - vb.height * k) / 2 - st.top;
+    headBox = { top: oy + bb.y * k, cx: ox + (bb.x + bb.width / 2) * k, w: bb.width * k, stW: st.width };
+  }
+  function placeCall() {
+    const c = $('call'); if (!headBox || !c.textContent) return;
+    const TAIL = 24, GAP = 4;
+    let top = headBox.top - c.offsetHeight - TAIL - GAP;
+    let left = headBox.cx + headBox.w * 0.18 - 36;     // しっぽの先が頭の右上あたりに来る位置
+    left = Math.max(12, Math.min(left, headBox.stW - c.offsetWidth - 12));
+    c.style.top = Math.max(46, top) + 'px';
+    c.style.left = left + 'px';
+  }
+  window.addEventListener('resize', () => { if ($('s-game').classList.contains('on') && !S.busy) { measureHead(); } });
+
   function oppMove(i) { return C.PATTERN[i % C.PATTERN.length]; }
 
   function nextTrial() {
     if (S.t >= C.N_TRIALS) return finishGame();
-    look(null);
+    measureHead();
     $('rd').textContent = S.t + 1;
     $('prog').style.width = (S.t / C.N_TRIALS * 100) + '%';
     $('call').textContent = ''; $('call').className = 'call';
@@ -119,25 +143,26 @@
     $('pointer').className = 'pointer ready';  // 手を構えるだけ（向きはまだ見せない）
 
     const delay = Math.round(C.DELAY_MIN_MS + Math.random() * (C.DELAY_MAX_MS - C.DELAY_MIN_MS));
-    $('call').textContent = 'あっち向いて…';
+    $('call').textContent = 'あっち向いて…'; placeCall();
     await sleep(delay);
 
     const opp = oppMove(S.t);
-    $('call').textContent = 'ホイ！'; $('call').className = 'call hoi';
+    $('call').textContent = 'ホイ！'; $('call').className = 'call hoi'; placeCall();
     look(opp);
     $('pointer').className = 'pointer ' + my;  // 首が動くのと同時に、選んだ方へ指さす
     await sleep(320);
 
     const win = my === opp ? 1 : 0;
-    if (win) { S.me++; bump('sc-me'); } else { S.op++; bump('sc-op'); }
-    $('pt-me').textContent = S.me; $('pt-op').textContent = S.op;
+    const delta = win ? C.WIN_POINTS : C.LOSS_POINTS;
+    S.me += delta; if (win) S.wins++; else S.losses++;
+    $('pt-me').textContent = S.me; bump('sc-me');
     const r = $('result');
-    r.textContent = (win ? 'あたり！ あなた +1' : 'はずれ… あいて +1') + `（あいて：${opp === 'L' ? '左' : '右'}）`;
+    r.textContent = (win ? 'あたり！ ' : 'はずれ！ ') + fmt(delta);
     r.className = 'result on ' + (win ? 'win' : 'lose');
 
     S.trials.push({
       trial: S.t + 1, my_choice: my, opp_choice: opp, win,
-      my_score: S.me, opp_score: S.op, rt_ms: rt, delay_ms: delay, trial_at: nowIso(),
+      my_score: S.me, opp_score: S.losses, points: delta, rt_ms: rt, delay_ms: delay, trial_at: nowIso(),
     });
     if (C.SHOW_HISTORY) {
       const s = document.createElement('span'); s.textContent = opp === 'L' ? '左' : '右'; $('hist').appendChild(s);
@@ -146,6 +171,7 @@
     await sleep(C.RESULT_HOLD_MS);
     nextTrial();
   }
+  function fmt(n) { return n > 0 ? '+' + n : n < 0 ? '−' + Math.abs(n) : '±0'; }
   function bump(id) { const e = $(id); e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump'); }
 
   $('choices').addEventListener('click', (e) => {
@@ -160,7 +186,7 @@
   // ---------- 4. 事後質問 ----------
   function finishGame() {
     $('prog').style.width = '100%';
-    $('post-score').innerHTML = `あなた <b>${S.me}</b> 点 ／ あいて <b>${S.op}</b> 点`;
+    $('post-score').innerHTML = `あなたの得点 <b>${S.me}</b> 点`;
     show('s-post');
   }
   $('btn-post').onclick = () => {
@@ -185,7 +211,7 @@
     return {
       trials: T.map((t) => Object.assign({}, common, t)),
       participant: Object.assign({}, common, {
-        n_trials: T.length, total_wins: S.me,
+        n_trials: T.length, total_wins: S.wins, final_score: S.me,
         win_rate_first_half: rate(T.slice(0, half)), win_rate_last_half: rate(T.slice(half)),
         max_streak: best, rule_text: ruleText,
         duration_s: Math.round((new Date(finishedAt) - new Date(S.startedAt)) / 1000),

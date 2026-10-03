@@ -63,7 +63,9 @@ label{font-weight:700;font-size:15px;display:block;margin-bottom:8px}
 .tag{display:inline-block;padding:2px 10px;border-radius:999px;border:2px solid var(--ink);font-weight:800;font-size:14px;background:#fff}
 
 /* ---------- ゲーム画面 ---------- */
-.hud{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+.hud{display:grid;grid-template-columns:auto auto;justify-content:space-between;align-items:center;gap:8px}
+.hud .score{min-width:132px}
+.hud .round{text-align:left;padding-left:4px}
 .score{background:var(--paper);border:2px solid var(--ink);border-radius:14px;padding:6px 12px;text-align:center;box-shadow:3px 3px 0 var(--ink)}
 .score .who{font-size:12px;font-weight:700;color:var(--ink-2)}
 .score .pt{font-size:28px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
@@ -81,7 +83,7 @@ label{font-weight:700;font-size:15px;display:block;margin-bottom:8px}
   background:radial-gradient(ellipse at 50% 30%,rgba(246,198,75,.28) 0,transparent 62%);pointer-events:none}
 .stage .opp-name{position:absolute;top:12px;left:14px;z-index:2}
 .char-box{position:relative;width:min(70%,300px);max-height:100%;aspect-ratio:300/330;margin-bottom:-4px}
-.call{position:absolute;top:52px;left:auto;right:max(12px,calc(50% - 240px));width:fit-content;max-width:calc(100% - 24px);z-index:4;transform-origin:20% 100%;
+.call{position:absolute;top:52px;left:12px;right:auto;width:fit-content;max-width:calc(100% - 24px);z-index:4;transform-origin:20% 100%;
   padding:8px 22px 10px;background:#fff;border:3px solid var(--ink);border-radius:22px;box-shadow:3px 3px 0 var(--ink);
   text-align:center;font-weight:800;font-size:clamp(22px,6vw,30px);line-height:1.25;letter-spacing:.04em;white-space:nowrap;
   animation:pop .22s}
@@ -101,7 +103,7 @@ label{font-weight:700;font-size:15px;display:block;margin-bottom:8px}
 .pointer.L svg{transform:scaleX(-1)}
 .pointer.R{opacity:1;transform:translateX(120px)}
 @keyframes shake{0%,100%{transform:translateY(52px)}50%{transform:translateY(44px)}}
-.result{position:absolute;bottom:14px;left:0;right:0;margin:0 auto;width:fit-content;max-width:calc(100% - 16px);padding:6px 16px;border-radius:999px;border:2px solid var(--ink);
+.result{position:absolute;bottom:14px;font-size:22px!important;padding:6px 22px!important;left:0;right:0;margin:0 auto;width:fit-content;max-width:calc(100% - 16px);padding:6px 16px;border-radius:999px;border:2px solid var(--ink);
   font-weight:800;font-size:18px;background:#fff;white-space:nowrap;z-index:3;opacity:0}
 .result.on{opacity:1;animation:pop .3s}
 .result.win{background:var(--win);color:#fff}
@@ -157,7 +159,7 @@ label{font-weight:700;font-size:15px;display:block;margin-bottom:8px}
     <div class="card rules">
       <p style="font-weight:800;font-size:17px" id="intro-line"></p>
       <div class="rule"><b class="ic">1</b><span>あなたは、<b>左</b>か<b>右</b>を指さします。<br>あいても同時に、<b>左</b>か<b>右</b>に顔を向けます。</span></div>
-      <div class="rule"><b class="ic">2</b><span>あいてが、あなたの<b>指さした方を向いたら、あなたに1点</b>。<br>ちがう方を向いたら、<b>あいてに1点</b>。</span></div>
+      <div class="rule"><b class="ic">2</b><span>あいてが、あなたの<b>指さした方を向いたら「あたり」で <span id="r-win">+1</span>点</b>。<br>ちがう方を向いたら<b>「はずれ」で <span id="r-lose">−1</span>点</b>。</span></div>
       <div class="rule"><b class="ic">3</b><span>全部で <b id="intro-n">40</b> 回。できるだけたくさん点を取ってください。</span></div>
       <p class="muted">※ 左右は、画面で見たときの左右です。</p>
     </div>
@@ -168,9 +170,8 @@ label{font-weight:700;font-size:15px;display:block;margin-bottom:8px}
   <!-- 3. ゲーム -->
   <section class="screen" id="s-game">
     <div class="hud">
-      <div class="score" id="sc-me"><div class="who">あなた</div><div class="pt"><span id="pt-me">0</span><small>点</small></div></div>
       <div class="round"><b id="rd">1</b>回め / <span id="rd-n">40</span></div>
-      <div class="score" id="sc-op"><div class="who">あいて</div><div class="pt"><span id="pt-op">0</span><small>点</small></div></div>
+      <div class="score" id="sc-me"><div class="who">あなたの得点</div><div class="pt"><span id="pt-me">0</span><small>点</small></div></div>
     </div>
     <div class="progress"><i id="prog"></i></div>
     <div class="stage">
