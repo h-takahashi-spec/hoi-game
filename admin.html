@@ -42,7 +42,7 @@ button{font:inherit;padding:8px 16px;border-radius:8px;border:1px solid var(--li
 button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 label.ck{display:inline-flex;gap:6px;align-items:center;color:var(--text-2);font-size:14px}
 input.num{width:64px;font:inherit;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text-1)}
-#msg{font-size:13px;color:var(--text-2)}
+#msg{font-size:13px;color:var(--text-2);white-space:pre-line}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;position:relative}
 .tile .nm{display:flex;align-items:center;gap:8px;font-weight:800}
@@ -132,6 +132,23 @@ td.txt{max-width:460px;line-height:1.6}
 
 <script>
 (function () {
+
+// Apps Script が JSON ではなく HTML（ログイン画面やエラーページ）を返したときに、原因の見当をつける
+const DIAG = function (text, url) {
+  const t = String(text || '');
+  const title = (t.match(/<title>([^<]*)<\/title>/i) || [])[1] || '';
+  const body = t.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  let why;
+  if (/\/dev(\?|$)/.test(url || '')) why = 'URL が「/dev」で終わっています。デプロイ時に表示される「/exec」で終わる URL を使ってください。';
+  else if (/accounts\.google\.com|ServiceLogin|ログイン|Sign in/i.test(t)) why = 'Google へのログインを求められています。デプロイの「アクセスできるユーザー」が「全員」になっていない可能性があります（大学アカウントでは「全員」を選べないことがあるので、個人アカウントで作り直してください）。';
+  else if (/doPost|doGet|スクリプト関数が見つかりません|Script function not found/i.test(t)) why = 'Apps Script に doPost / doGet が見つかりません。Code.gs を貼り付けて保存したあと、「デプロイを管理」から新しいバージョンでデプロイし直してください。';
+  else if (/権限|authorization|許可/i.test(t)) why = 'Apps Script の承認が済んでいません。エディタで一度「実行」して承認するか、デプロイし直してください。';
+  else if (/見つかりません|not found|404/i.test(t)) why = 'その URL のウェブアプリが見つかりません。URL のコピーまちがい、またはデプロイが削除されていないか確認してください。';
+  else why = 'Apps Script がエラーページを返しました。';
+  const detail = (title ? '［' + title + '］ ' : '') + body.slice(0, 160);
+  return why + (detail ? '\n（受け取った内容：' + detail + '）' : '');
+};
+
   const COND = [
     { id: 'human', label: '人間', v: '--s-human' },
     { id: 'shiba', label: '柴犬', v: '--s-shiba' },
@@ -161,7 +178,13 @@ td.txt{max-width:460px;line-height:1.6}
     $('msg').textContent = '読み込み中…';
     try {
       const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(key));
-      const j = await res.json();
+      const text = await res.text();
+      let j;
+      try { j = JSON.parse(text); } catch (e) {
+        if (/googleusercontent\.com/.test(res.url) && !/accounts\.google\.com|ServiceLogin/i.test(text))
+          throw new Error('Apps Script は動いていますが、Google から返事を受け取れませんでした。\nGoogle に複数のアカウントでログインしているブラウザで起きやすい現象です。シークレットウィンドウで開くか、スプレッドシートを作ったアカウントだけでログインしたブラウザで開いてください。');
+        throw new Error(DIAG(text, url));
+      }
       if (!j.ok) throw new Error(j.error);
       RAW = j;
       $('msg').textContent = `読み込み完了：参加者 ${j.participants.length} 件 / 試行 ${j.trials.length} 行（${new Date().toLocaleTimeString()}）`;

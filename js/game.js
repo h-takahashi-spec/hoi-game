@@ -1,5 +1,21 @@
 // ===== あっち向いてホイ・ゲーム本体 =====
-window.HOI_GAME_VERSION = '1.2';
+window.HOI_GAME_VERSION = '1.4';
+// Apps Script が JSON ではなく HTML（ログイン画面やエラーページ）を返したときに、原因の見当をつける
+window.HOI_DIAGNOSE = function (text, url) {
+  const t = String(text || '');
+  const title = (t.match(/<title>([^<]*)<\/title>/i) || [])[1] || '';
+  const body = t.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  let why;
+  if (/\/dev(\?|$)/.test(url || '')) why = 'URL が「/dev」で終わっています。デプロイ時に表示される「/exec」で終わる URL を使ってください。';
+  else if (/accounts\.google\.com|ServiceLogin|ログイン|Sign in/i.test(t)) why = 'Google へのログインを求められています。デプロイの「アクセスできるユーザー」が「全員」になっていない可能性があります（大学アカウントでは「全員」を選べないことがあるので、個人アカウントで作り直してください）。';
+  else if (/doPost|doGet|スクリプト関数が見つかりません|Script function not found/i.test(t)) why = 'Apps Script に doPost / doGet が見つかりません。Code.gs を貼り付けて保存したあと、「デプロイを管理」から新しいバージョンでデプロイし直してください。';
+  else if (/権限|authorization|許可/i.test(t)) why = 'Apps Script の承認が済んでいません。エディタで一度「実行」して承認するか、デプロイし直してください。';
+  else if (/見つかりません|not found|404/i.test(t)) why = 'その URL のウェブアプリが見つかりません。URL のコピーまちがい、またはデプロイが削除されていないか確認してください。';
+  else why = 'Apps Script がエラーページを返しました。';
+  const detail = (title ? '［' + title + '］ ' : '') + body.slice(0, 160);
+  return why + (detail ? '\n（受け取った内容：' + detail + '）' : '');
+};
+
 (function () {
   const C = window.HOI_CONFIG;
   const CH = window.HOI_CHARS;
@@ -230,7 +246,19 @@ window.HOI_GAME_VERSION = '1.2';
     const res = await fetch(C.GAS_URL, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload),
     });
-    const j = await res.json();
+    const text = await res.text();
+    let j;
+    try { j = JSON.parse(text); }
+    catch (e) {
+      // Apps Script は結果を googleusercontent.com に転送して返す。転送先まで届いていれば doPost は実行済み
+      // （Google に複数アカウントでログインしているブラウザなどでは、転送先が JSON ではなくエラーページを返すことがある）
+      let host = ''; try { host = new URL(res.url).host; } catch (e2) {}
+      if (/googleusercontent\.com$/.test(host) && !/accounts\.google\.com|ServiceLogin/i.test(text)) {
+        console.warn('保存は実行済みと判断（応答を読めませんでした）', res.url);
+        return { ok: true, unconfirmed: true };
+      }
+      throw new Error('送信先の設定に問題があります。先生に知らせてください。\n' + window.HOI_DIAGNOSE(text, C.GAS_URL));
+    }
     if (!j.ok) throw new Error(j.error || '保存に失敗しました');
     return j;
   }
